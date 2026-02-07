@@ -1,178 +1,349 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GPT Usage Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    :root { color-scheme: dark; }
-    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0f14; color:#e6edf3; }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px; }
-    h1 { font-size: 28px; margin: 0 0 8px; }
-    .muted { color:#9aa4b2; }
-    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:16px; margin:24px 0; }
-    .card { background:#111824; border:1px solid #1f2a3a; border-radius:12px; padding:16px; }
-    .card h3 { margin:0 0 8px; font-size:14px; color:#9aa4b2; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
-    .card .value { font-size:24px; font-weight:700; }
-    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
-    .input { background:#0f1520; border:1px solid #1f2a3a; color:#e6edf3; padding:10px 12px; border-radius:8px; }
-    button { background:#2d6cdf; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
-    button:hover { background:#2457b8; }
-    canvas { background:#0f1520; border:1px solid #1f2a3a; border-radius:12px; padding:8px; }
-    .footer { margin-top: 16px; font-size:12px; color:#7f8a99; }
-    a { color:#7fb2ff; text-decoration:none; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Emoji Asteroids</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;touch-action:none;}
+  canvas{display:block;width:100vw;height:100vh;background:#000;}
+  #hint{position:fixed;top:8px;left:8px;color:#fff;font-family:system-ui,Segoe UI,Arial,sans-serif;font-size:14px;opacity:.7;z-index:2}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>GPT Usage Dashboard</h1>
-    <div class="muted">Live usage pulled from OpenAI billing API</div>
-
-    <div class="row" style="margin-top:16px;">
-      <label class="muted">Start</label>
-      <input id="start" class="input" type="date" />
-      <label class="muted">End</label>
-      <input id="end" class="input" type="date" />
-      <button id="refresh">Refresh</button>
-      <span id="status" class="muted"></span>
-    </div>
-
-    <div class="row" style="margin-top:12px;">
-      <label class="muted">API Key</label>
-      <input id="apikey" class="input" type="password" placeholder="sk-..." style="min-width:320px;" />
-      <button id="savekey">Save Key</button>
-      <span class="muted">Stored in browser localStorage.</span>
-    </div>
-
-    <div class="cards">
-      <div class="card"><h3>Total Spend</h3><div class="value" id="totalSpend">—</div></div>
-      <div class="card"><h3>Total Requests</h3><div class="value" id="totalRequests">—</div></div>
-      <div class="card"><h3>Total Tokens</h3><div class="value" id="totalTokens">—</div></div>
-      <div class="card"><h3>Last Updated</h3><div class="value" id="lastUpdated">—</div></div>
-    </div>
-
-    <div class="card">
-      <h3>Daily Spend</h3>
-      <canvas id="chart" height="120"></canvas>
-    </div>
-
-    <div class="footer">Data source: OpenAI billing usage endpoint. Repo: <a href="https://github.com/zenoconorart/GPTUsage">zenoconorart/GPTUsage</a></div>
-  </div>
-
+<canvas id="gameCanvas"></canvas>
+<div id="hint">Tap to fire • Hold to thrust toward touch</div>
 <script>
-  // OpenAI API key is stored in browser localStorage (not committed to git)
-  let API_KEY = localStorage.getItem('openai_api_key') || '';
-
-  const startEl = document.getElementById('start');
-  const endEl = document.getElementById('end');
-  const statusEl = document.getElementById('status');
-  const totalSpendEl = document.getElementById('totalSpend');
-  const totalRequestsEl = document.getElementById('totalRequests');
-  const totalTokensEl = document.getElementById('totalTokens');
-  const lastUpdatedEl = document.getElementById('lastUpdated');
-  const apiKeyEl = document.getElementById('apikey');
-  const saveKeyEl = document.getElementById('savekey');
-
-  const today = new Date();
-  const end = new Date(today);
-  const start = new Date(today);
-  start.setDate(start.getDate() - 30);
-
-  const fmt = (d) => d.toISOString().slice(0,10);
-  startEl.value = fmt(start);
-  endEl.value = fmt(end);
-
-  if (API_KEY) apiKeyEl.value = API_KEY;
-  saveKeyEl.addEventListener('click', () => {
-    API_KEY = apiKeyEl.value.trim();
-    if (API_KEY) {
-      localStorage.setItem('openai_api_key', API_KEY);
-      statusEl.textContent = 'API key saved';
-    } else {
-      localStorage.removeItem('openai_api_key');
-      statusEl.textContent = 'API key cleared';
-    }
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const shipEmoji = '🍆';
+const bulletEmoji = '💦';
+const asteroidEmoji = '🍑';
+const TURN_SPEED = 0.03;
+const ACCELERATION = 0.015;
+const BULLET_SPEED = 2.7;
+const SLOWDOWN_FACTOR = 0.99;
+const ASTEROID_MIN_SPEED = 0.35;
+const ASTEROID_MAX_SPEED = 0.9;
+const LEVELS = [
+  { splits: 0, size: 24 },  // level 1 normal
+  { splits: 1, size: 28 },  // level 2 slightly bigger, split once
+  { splits: 2, size: 30 },  // level 3 a bit bigger, split twice
+  { splits: 3, size: 34 }   // level 4 even bigger, split three times (lots of tiny ones)
+];
+let currentLevel = 1;
+let score = 0, lives = 3, gameOver = false, waiting = false, levelComplete = false;
+let lifePoopTimer = 0;
+const ship = {x: 0, y: 0, angle: 0, vx:0, vy:0};
+const bullets = [], asteroids = [], explosions = [], splashes = [], celebration = [];
+const stars = Array.from({length: 80}, ()=>({
+  x: Math.random(),
+  y: Math.random(),
+  r: 0.6 + Math.random()*1.2,
+  phase: Math.random()*Math.PI*2,
+  speed: 0.005 + Math.random()*0.01
+}));
+// audio
+let audioCtx;
+let thrusterOsc, thrusterGain;
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function ensureThruster(){
+  ensureAudio();
+  if(thrusterOsc) return;
+  thrusterOsc = audioCtx.createOscillator();
+  thrusterGain = audioCtx.createGain();
+  thrusterOsc.type = 'sawtooth';
+  thrusterOsc.frequency.setValueAtTime(90, audioCtx.currentTime);
+  thrusterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  thrusterOsc.connect(thrusterGain).connect(audioCtx.destination);
+  thrusterOsc.start();
+}
+function updateThruster(active, speed){
+  if(!active){
+    if(thrusterGain) thrusterGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
+    return;
+  }
+  ensureThruster();
+  const s = Math.min(3, Math.max(0, speed));
+  const targetGain = 0.008 + (s/3)*0.03; // faint but audible
+  const targetFreq = 80 + (s/3)*160;
+  thrusterGain.gain.exponentialRampToValueAtTime(targetGain, audioCtx.currentTime + 0.05);
+  thrusterOsc.frequency.exponentialRampToValueAtTime(targetFreq, audioCtx.currentTime + 0.05);
+}
+function playSpunk(){
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(220, t);
+  osc.frequency.exponentialRampToValueAtTime(1200, t+0.05);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.15, t+0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t+0.12);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t); osc.stop(t+0.13);
+}
+function playFart(){
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const noise = audioCtx.createBufferSource();
+  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate*0.4, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*0.6;
+  noise.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type='lowpass'; filter.frequency.setValueAtTime(600, t);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.35, t+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t+0.35);
+  noise.connect(filter).connect(gain).connect(audioCtx.destination);
+  noise.start(t); noise.stop(t+0.36);
+}
+function playJingle(){
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const notes = [523.25, 659.25, 783.99];
+  notes.forEach((f,i)=>{
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type='triangle';
+    osc.frequency.setValueAtTime(f, t + i*0.12);
+    gain.gain.setValueAtTime(0.0001, t + i*0.12);
+    gain.gain.exponentialRampToValueAtTime(0.2, t + i*0.12 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + i*0.12 + 0.2);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t + i*0.12);
+    osc.stop(t + i*0.12 + 0.22);
   });
-
-  let chart;
-
-  async function fetchUsage(startDate, endDate) {
-    const url = `https://api.openai.com/dashboard/billing/usage?start_date=${startDate}&end_date=${endDate}`;
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${API_KEY}` }
+}
+function playLose(){
+  ensureAudio();
+  const t = audioCtx.currentTime;
+  const notes = [392, 330, 262, 196];
+  notes.forEach((f,i)=>{
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type='sawtooth';
+    osc.frequency.setValueAtTime(f, t + i*0.12);
+    gain.gain.setValueAtTime(0.0001, t + i*0.12);
+    gain.gain.exponentialRampToValueAtTime(0.25, t + i*0.12 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + i*0.12 + 0.18);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t + i*0.12);
+    osc.stop(t + i*0.12 + 0.2);
+  });
+}
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ship.x = canvas.width/2; ship.y = canvas.height/2;
+}
+window.addEventListener('resize', resize); resize();
+function spawnAsteroidAt(x, y, size, splits){
+  const angle = Math.random() * Math.PI * 2;
+  const speed = ASTEROID_MIN_SPEED + Math.random() * (ASTEROID_MAX_SPEED - ASTEROID_MIN_SPEED);
+  const safeSize = Number.isFinite(size) ? size : 24;
+  const safeSplits = Number.isFinite(splits) ? splits : 0;
+  asteroids.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, size: safeSize, splits: safeSplits });
+}
+function startLevel(){
+  asteroids.length = 0;
+  const cfg = LEVELS[Math.min(currentLevel, LEVELS.length) - 1];
+  for(let i=0;i<6;i++){
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    spawnAsteroidAt(x, y, cfg.size, cfg.splits);
+  }
+}
+function splitAsteroid(a){
+  const splits = Number.isFinite(a.splits) ? a.splits : 0;
+  if(splits<=0) return;
+  const baseSize = Number.isFinite(a.size) ? a.size : 24;
+  const newSize = Math.max(10, baseSize * 0.6);
+  for(let i=0;i<2;i++){
+    const offset = (Math.random()*12)-6;
+    spawnAsteroidAt(a.x + offset, a.y + offset, newSize, splits-1);
+  }
+}
+function addSplash(x,y){
+  for(let i=0;i<14;i++){
+    splashes.push({
+      x, y,
+      vx:(Math.random()*2-1)*1.2,
+      vy:(Math.random()*2-1)*1.2,
+      life:45,
+      size: 28 + Math.random()*10
     });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || res.statusText);
-    }
-    return res.json();
   }
-
-  function renderChart(labels, values) {
-    const ctx = document.getElementById('chart');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'USD',
-          data: values,
-          borderColor: '#2d6cdf',
-          backgroundColor: 'rgba(45,108,223,0.2)',
-          tension: 0.3,
-          fill: true
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } },
-          y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } }
-        }
-      }
+}
+function startWinCelebration(){
+  celebration.length = 0;
+  for(let i=0;i<60;i++){
+    celebration.push({
+      x: Math.random()*canvas.width,
+      y: canvas.height + Math.random()*200,
+      vx: (Math.random()*2-1)*0.3,
+      vy: - (1 + Math.random()*1.5),
+      life: 120 + Math.random()*60,
+      emoji: (i%6===0)?'🌋':(i%6===1)?'🍆':(i%6===2)?'💦':'💖'
     });
   }
-
-  async function refresh() {
-    try {
-      API_KEY = localStorage.getItem('openai_api_key') || API_KEY || '';
-      if (!API_KEY) {
-        statusEl.textContent = 'Add API key to load data';
-        return;
+}
+startLevel();
+function playerHit(){
+  lives--; ship.x = canvas.width/2; ship.y = canvas.height/2; ship.vx=ship.vy=0; ship.angle=0;
+  playLose();
+  lifePoopTimer = 40;
+  if(lives<=0){ gameOver = true; } else { waiting = true; }
+}
+function restartGame(){
+  score=0; lives=3; currentLevel=1; gameOver=false; waiting=false; levelComplete=false; ship.x=canvas.width/2; ship.y=canvas.height/2; ship.vx=ship.vy=0; ship.angle=0; bullets.length=0; startLevel();
+}
+function nextLevel(){
+  currentLevel++; levelComplete=false; waiting=false; ship.x=canvas.width/2; ship.y=canvas.height/2; ship.vx=ship.vy=0; ship.angle=0; bullets.length=0; startLevel();
+}
+// Touch control state
+let touchActive = false;
+let touchTimer = null;
+let target = {x:0,y:0};
+function setTarget(t){ target.x = t.clientX; target.y = t.clientY; }
+canvas.addEventListener('touchstart', (e)=>{
+  e.preventDefault();
+  const t = e.touches[0]; if(t){ setTarget(t); }
+  // fire once on tap
+  if(!ship.shootCooldown){ bullets.push({ x: ship.x, y: ship.y, vx: Math.cos(ship.angle)*BULLET_SPEED, vy: Math.sin(ship.angle)*BULLET_SPEED }); ship.shootCooldown = 10; playSpunk(); }
+  if(gameOver) restartGame(); else if(levelComplete) nextLevel(); else if(waiting) waiting=false;
+  // only enable thrust if holding
+  touchActive = false;
+  if(touchTimer) clearTimeout(touchTimer);
+  touchTimer = setTimeout(()=>{ touchActive = true; }, 120);
+}, {passive:false});
+canvas.addEventListener('mousedown', (e)=>{
+  if(gameOver) restartGame(); else if(levelComplete) nextLevel(); else if(waiting) waiting=false;
+});
+canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); const t=e.touches[0]; if(t){ setTarget(t);} touchActive = true; }, {passive:false});
+canvas.addEventListener('touchend', (e)=>{ e.preventDefault(); touchActive = false; if(touchTimer) clearTimeout(touchTimer); if(waiting) waiting=false; }, {passive:false});
+canvas.addEventListener('touchcancel', (e)=>{ e.preventDefault(); touchActive = false; if(touchTimer) clearTimeout(touchTimer); if(waiting) waiting=false; }, {passive:false});
+// Keyboard
+const keys = {};
+document.addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='Enter' || e.code==='Space'){ if(gameOver) restartGame(); else if(levelComplete) nextLevel(); else if(waiting) waiting=false; } });
+document.addEventListener('keyup',e=>{ keys[e.code]=false; });
+function update(){
+  if(waiting && touchActive){ waiting = false; }
+  if(gameOver || waiting || levelComplete){ updateThruster(false, 0); return; }
+  // touch thrust toward target
+  if(touchActive){
+    ship.angle = Math.atan2(target.y - ship.y, target.x - ship.x);
+    ship.vx += Math.cos(ship.angle)*ACCELERATION;
+    ship.vy += Math.sin(ship.angle)*ACCELERATION;
+  }
+  // keyboard fallback
+  if(keys['ArrowLeft']) ship.angle -= TURN_SPEED;
+  if(keys['ArrowRight']) ship.angle += TURN_SPEED;
+  if(keys['ArrowUp']) { ship.vx += Math.cos(ship.angle)*ACCELERATION; ship.vy += Math.sin(ship.angle)*ACCELERATION; }
+  const speed = Math.hypot(ship.vx, ship.vy);
+  updateThruster((touchActive || keys['ArrowUp']) && !(gameOver||waiting||levelComplete), speed);
+  if(keys['ArrowDown']) { ship.vx *= SLOWDOWN_FACTOR; ship.vy *= SLOWDOWN_FACTOR; }
+  if(keys['Space']) { if(!ship.shootCooldown){ bullets.push({ x: ship.x, y: ship.y, vx: Math.cos(ship.angle)*BULLET_SPEED, vy: Math.sin(ship.angle)*BULLET_SPEED }); ship.shootCooldown = 10; playSpunk(); } }
+  if(ship.shootCooldown>0) ship.shootCooldown--;
+  // drift slows a bit when not thrusting
+  if(!touchActive && !keys['ArrowUp']){ ship.vx *= SLOWDOWN_FACTOR; ship.vy *= SLOWDOWN_FACTOR; }
+  ship.x = (ship.x + ship.vx + canvas.width) % canvas.width;
+  ship.y = (ship.y + ship.vy + canvas.height) % canvas.height;
+  for(let bi=bullets.length-1; bi>=0; bi--){
+    const b = bullets[bi];
+    b.x += b.vx; b.y += b.vy;
+    if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height) bullets.splice(bi,1);
+  }
+  for(let ai=asteroids.length-1; ai>=0; ai--){
+    const a = asteroids[ai];
+    const aSize = Number.isFinite(a.size) ? a.size : 24;
+    a.x = (a.x+a.vx+canvas.width)%canvas.width; a.y = (a.y+a.vy+canvas.height)%canvas.height;
+    for(let bi=bullets.length-1; bi>=0; bi--){
+      const b = bullets[bi];
+      if(Math.hypot(a.x-b.x,a.y-b.y)<aSize){
+        bullets.splice(bi,1);
+        asteroids.splice(ai,1);
+        splitAsteroid(a);
+        score++;
+        explosions.push({x:a.x, y:a.y, life:20, size:aSize});
+        addSplash(a.x,a.y);
+        playFart();
+        break;
       }
-      statusEl.textContent = 'Loading…';
-      const s = startEl.value;
-      const e = endEl.value;
-      const data = await fetchUsage(s, e);
-
-      const daily = data.daily_costs || [];
-      const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toISOString().slice(0,10) : '');
-      const values = daily.map(d => (d.total_cost || 0));
-
-      const totalSpend = values.reduce((a,b)=>a+b,0);
-      const totalRequests = daily.reduce((a,b)=>a+(b.num_requests||0),0);
-      const totalTokens = daily.reduce((a,b)=>a+(b.num_tokens||0),0);
-
-      totalSpendEl.textContent = `$${totalSpend.toFixed(2)}`;
-      totalRequestsEl.textContent = totalRequests.toLocaleString();
-      totalTokensEl.textContent = totalTokens.toLocaleString();
-      lastUpdatedEl.textContent = new Date().toLocaleString();
-
-      renderChart(labels, values);
-      statusEl.textContent = 'Updated';
-    } catch (err) {
-      console.error(err);
-      statusEl.textContent = 'Error (see console)';
-      totalSpendEl.textContent = '—';
-      totalRequestsEl.textContent = '—';
-      totalTokensEl.textContent = '—';
+    }
+    if(Math.hypot(a.x-ship.x,a.y-ship.y)<aSize){
+      asteroids.splice(ai,1);
+      splitAsteroid(a);
+      playerHit();
     }
   }
-
-  document.getElementById('refresh').addEventListener('click', refresh);
-  refresh();
+  explosions.forEach((ex,i)=>{ ex.life--; if(ex.life<=0) explosions.splice(i,1); });
+  for(let i=splashes.length-1;i>=0;i--){
+    const p = splashes[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if(p.life<=0) splashes.splice(i,1);
+  }
+  for(let i=celebration.length-1;i>=0;i--){
+    const c = celebration[i];
+    c.x += c.vx; c.y += c.vy; c.life--;
+    if(c.life<=0) celebration.splice(i,1);
+  }
+  if(lifePoopTimer>0) lifePoopTimer--;
+  if(!levelComplete && asteroids.length===0){ levelComplete=true; waiting=true; playJingle(); startWinCelebration(); }
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // stars
+  stars.forEach(s=>{
+    const twinkle = 0.3 + 0.7*(0.5+0.5*Math.sin(performance.now()*s.speed + s.phase));
+    ctx.save();
+    ctx.globalAlpha = twinkle*0.6;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x*canvas.width, s.y*canvas.height, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+  ctx.font='30px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  bullets.forEach(b=>ctx.fillText(bulletEmoji,b.x,b.y));
+  asteroids.forEach(a=>{ const s = Number.isFinite(a.size) ? a.size : 24; ctx.font=`${Math.max(18,s*1.4)}px serif`; ctx.fillText(asteroidEmoji,a.x,a.y); });
+  splashes.forEach(p=>{ ctx.save(); ctx.globalAlpha=p.life/45; ctx.font=`${p.size}px serif`; ctx.fillText('💩', p.x, p.y); ctx.restore(); });
+  celebration.forEach(c=>{ ctx.save(); ctx.globalAlpha=Math.min(1,c.life/60); ctx.font=`${24 + (c.emoji==='🌋'?12:0)}px serif`; ctx.fillText(c.emoji, c.x, c.y); ctx.restore(); });
+  explosions.forEach(ex=>{ ctx.save(); ctx.globalAlpha=ex.life/20; ctx.fillStyle='brown'; ctx.beginPath(); const r = Math.max(1, (ex.size||20) * (ex.life/20)); ctx.arc(ex.x, ex.y, r, 0, Math.PI*2); ctx.fill(); ctx.restore(); });
+  ctx.font='30px serif';
+  ctx.save(); ctx.translate(ship.x,ship.y); ctx.rotate(ship.angle); ctx.fillText(shipEmoji,0,0); ctx.restore();
+  ctx.fillStyle='white'; ctx.textAlign='left'; ctx.fillText('Score: '+score,10,30);
+  ctx.textAlign='right'; ctx.fillText(shipEmoji.repeat(lives),canvas.width-10,30);
+  if(levelComplete){ ctx.textAlign='center'; ctx.fillText('Level complete - tap to continue',canvas.width/2,canvas.height/2); }
+  else if(waiting){ ctx.textAlign='center'; ctx.fillText('Tap/click to continue',canvas.width/2,canvas.height/2); }
+  if(lifePoopTimer>0){
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, lifePoopTimer/40);
+    ctx.font = '140px serif';
+    ctx.textAlign='center';
+    ctx.fillText('💩', canvas.width/2, canvas.height/2);
+    ctx.restore();
+  }
+  if(gameOver){
+    ctx.save();
+    ctx.globalAlpha=0.9;
+    ctx.font='80px serif';
+    for(let y=60; y<canvas.height; y+=90){
+      for(let x=60; x<canvas.width; x+=90){
+        ctx.fillText('💩', x, y);
+      }
+    }
+    ctx.restore();
+    ctx.textAlign='center'; ctx.fillStyle='white'; ctx.fillText('Game Over - tap to restart',canvas.width/2,canvas.height/2);
+  }
+}
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
 </script>
 </body>
 </html>
