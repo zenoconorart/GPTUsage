@@ -71,6 +71,15 @@
     return res.json();
   }
 
+  async function fetchUsdToGbp() {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!res.ok) throw new Error('Failed to load FX rate');
+    const data = await res.json();
+    const rate = data?.rates?.GBP;
+    if (!rate) throw new Error('GBP rate missing');
+    return rate;
+  }
+
   function renderChart(labels, values) {
     const ctx = document.getElementById('chart');
     if (chart) chart.destroy();
@@ -79,7 +88,7 @@
       data: {
         labels,
         datasets: [{
-          label: 'USD',
+          label: 'GBP',
           data: values,
           backgroundColor: 'rgba(45,108,223,0.6)',
           borderColor: '#2d6cdf',
@@ -93,7 +102,7 @@
             color: '#e6edf3',
             anchor: 'end',
             align: 'end',
-            formatter: (v) => `$${Number(v || 0).toFixed(2)}`,
+            formatter: (v) => `£${Number(v || 0).toFixed(2)}`,
             clamp: true
           }
         },
@@ -115,22 +124,24 @@
       const s = start.toISOString().slice(0,10);
       const e = end.toISOString().slice(0,10);
       const data = await fetchUsage(s, e);
+      const fx = await fetchUsdToGbp();
 
       const daily = data.daily_costs || [];
       const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toISOString().slice(0,10) : '');
-      const values = daily.map(d => Number(d.total_cost || 0));
+      const valuesUsd = daily.map(d => Number(d.total_cost || 0));
+      const valuesGbp = valuesUsd.map(v => v * fx);
 
-      const totalSpend = values.reduce((a,b)=>a + Number(b || 0), 0);
+      const totalSpendGbp = valuesGbp.reduce((a,b)=>a + Number(b || 0), 0);
       const totalRequests = daily.reduce((a,b)=>a+(b.num_requests||0),0);
       const totalTokens = daily.reduce((a,b)=>a+(b.num_tokens||0),0);
 
-      totalSpendEl.textContent = `$${totalSpend.toFixed(2)}`;
+      totalSpendEl.textContent = `£${totalSpendGbp.toFixed(2)}`;
       totalRequestsEl.textContent = totalRequests.toLocaleString();
       totalTokensEl.textContent = totalTokens.toLocaleString();
       lastUpdatedEl.textContent = new Date().toLocaleString();
 
-      renderChart(labels, values);
-      statusEl.textContent = 'Updated';
+      renderChart(labels, valuesGbp);
+      statusEl.textContent = `Updated (FX ${fx.toFixed(4)} GBP/USD)`;
     } catch (err) {
       console.error(err);
       statusEl.textContent = 'Error (see console)';
