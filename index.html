@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GPT Usage Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
   <style>
     :root { color-scheme: dark; }
     body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0f14; color:#e6edf3; }
@@ -86,12 +87,22 @@
         }]
       },
       options: {
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            color: '#e6edf3',
+            anchor: 'end',
+            align: 'end',
+            formatter: (v) => `$${Number(v || 0).toFixed(2)}`,
+            clamp: true
+          }
+        },
         scales: {
           x: { ticks: { color: '#9aa4b2', maxRotation: 0, autoSkip: true }, grid: { color: '#1f2a3a' } },
           y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' }, beginAtZero: true }
         }
-      }
+      },
+      plugins: [ChartDataLabels]
     });
   }
 
