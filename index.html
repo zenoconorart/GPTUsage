@@ -114,12 +114,13 @@
             color: '#e6edf3',
             anchor: 'end',
             align: 'end',
-            formatter: (v) => `£${Number(v || 0).toFixed(2)}`,
-            clamp: true
+            formatter: (v) => (Number(v || 0) >= 0.01 ? `£${Number(v || 0).toFixed(2)}` : ''),
+            clamp: true,
+            font: { size: 10 }
           }
         },
         scales: {
-          x: { ticks: { color: '#9aa4b2', maxRotation: 0, autoSkip: true }, grid: { color: '#1f2a3a' } },
+          x: { ticks: { color: '#9aa4b2', maxRotation: 0, autoSkip: false }, grid: { color: '#1f2a3a' } },
           y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' }, beginAtZero: true }
         }
       },
