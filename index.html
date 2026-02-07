@@ -74,23 +74,22 @@
     const ctx = document.getElementById('chart');
     if (chart) chart.destroy();
     chart = new Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels,
         datasets: [{
           label: 'USD',
           data: values,
+          backgroundColor: 'rgba(45,108,223,0.6)',
           borderColor: '#2d6cdf',
-          backgroundColor: 'rgba(45,108,223,0.2)',
-          tension: 0.3,
-          fill: true
+          borderWidth: 1
         }]
       },
       options: {
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } },
-          y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } }
+          x: { ticks: { color: '#9aa4b2', maxRotation: 0, autoSkip: true }, grid: { color: '#1f2a3a' } },
+          y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' }, beginAtZero: true }
         }
       }
     });
