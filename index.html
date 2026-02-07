@@ -122,8 +122,8 @@
           backgroundColor: 'rgba(45,108,223,0.6)',
           borderColor: '#2d6cdf',
           borderWidth: 1,
-          barPercentage: 0.9,
-          categoryPercentage: 0.9
+          barPercentage: 0.7,
+          categoryPercentage: 0.8
         }]
       },
       options: {
@@ -139,7 +139,7 @@
           }
         },
         scales: {
-          x: { ticks: { color: '#9aa4b2', maxRotation: 0, autoSkip: false }, grid: { color: '#1f2a3a' } },
+          x: { ticks: { color: '#9aa4b2', maxRotation: 45, minRotation: 45, autoSkip: false, font: { size: 10 } }, grid: { color: '#1f2a3a' } },
           y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' }, beginAtZero: true }
         }
       },
@@ -169,6 +169,20 @@
       const valuesUsd = daily.map(d => Number(d.total_cost || 0));
       const valuesGbp = valuesUsd.map(v => v * fx);
       const dates = daily.map(d => d.timestamp ? new Date(d.timestamp*1000) : null);
+
+      // Ensure today is present (some days may be missing at 0 spend)
+      const today = new Date();
+      const todayKey = today.toISOString().slice(0,10);
+      const lastDateKey = dates.length && dates[dates.length - 1]
+        ? dates[dates.length - 1].toISOString().slice(0,10)
+        : '';
+      if (todayKey && todayKey !== lastDateKey) {
+        const weekday = today.toLocaleDateString(undefined, { weekday: 'short' });
+        const day = ordinal(today.getDate());
+        labels.push(`${weekday} ${day}`);
+        valuesGbp.push(0);
+        dates.push(today);
+      }
 
       const totalSpendGbp = valuesGbp.reduce((a,b)=>a + Number(b || 0), 0);
       totalSpendEl.textContent = `£${totalSpendGbp.toFixed(2)}`;
