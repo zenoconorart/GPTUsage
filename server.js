@@ -23,13 +23,31 @@ app.get('/usage', async (req, res) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'OPENAI_API_KEY not set on server' });
 
-  const url = `https://api.openai.com/dashboard/billing/usage?start_date=${start_date}&end_date=${end_date}`;
+  // Convert dates to unix seconds and call Costs API (server-side key supported)
+  const startTs = Math.floor(new Date(`${start_date}T00:00:00Z`).getTime() / 1000);
+  const endTs = Math.floor(new Date(`${end_date}T23:59:59Z`).getTime() / 1000);
+  const days = Math.max(1, Math.ceil((endTs - startTs) / 86400));
+  const url = `https://api.openai.com/v1/organization/costs?start_time=${startTs}&end_time=${endTs}&bucket_width=1d&limit=${days}`;
   try {
     const upstream = await fetch(url, {
       headers: { Authorization: `Bearer ${apiKey}` }
     });
-    const text = await upstream.text();
-    res.status(upstream.status).set('content-type', upstream.headers.get('content-type') || 'application/json').send(text);
+    const data = await upstream.json();
+    if (!upstream.ok) {
+      return res.status(upstream.status).json(data);
+    }
+    const buckets = data.data || data.results || [];
+    const daily_costs = buckets.map(b => {
+      const ts = b.start_time || b.bucket_start || b.time_start || b.timestamp || 0;
+      const cost =
+        b.amount?.value ??
+        b.cost?.value ??
+        b.results?.[0]?.amount?.value ??
+        b.results?.[0]?.cost?.value ??
+        0;
+      return { timestamp: ts, total_cost: cost, num_requests: 0, num_tokens: 0 };
+    });
+    res.json({ daily_costs });
   } catch (err) {
     res.status(500).json({ error: 'Proxy failed', detail: String(err) });
   }
