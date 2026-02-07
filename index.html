@@ -20,6 +20,11 @@
     .card h3 { margin:0 0 8px; font-size:14px; color:#9aa4b2; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
     .card .value { font-size:24px; font-weight:700; }
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+    .controls { flex-wrap: nowrap; }
+    .controls .input { padding: 6px 10px; min-width: 40px; text-align:center; }
+    .controls input[type="range"] { padding: 0; height: 24px; }
+    .chart-wrap { position: relative; }
+    .month-corner { position: absolute; left: 12px; bottom: 12px; font-size:12px; color:#7f8a99; }
     .input { background:#0f1520; border:1px solid #1f2a3a; color:#e6edf3; padding:10px 12px; border-radius:8px; }
     button { background:#2d6cdf; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
     button:hover { background:#2457b8; }
@@ -38,7 +43,7 @@
       <span id="status" class="muted"></span>
     </div>
 
-    <div class="row" style="margin-top:12px;">
+    <div class="row controls" style="margin-top:12px;">
       <span class="muted">Showing last 7 days</span>
       <button id="prevWeek" class="input">◀</button>
       <input id="daySlider" type="range" min="0" max="0" value="0" class="input" style="flex:1;" />
@@ -53,8 +58,10 @@
 
     <div class="card">
       <h3>Daily Spend</h3>
-      <canvas id="chart" height="120"></canvas>
-      <div class="footer" id="monthLabel"></div>
+      <div class="chart-wrap">
+        <canvas id="chart" height="120"></canvas>
+        <div class="month-corner" id="monthLabel"></div>
+      </div>
     </div>
 
     <div class="footer">Data source: OpenAI billing usage endpoint. Repo: <a href="https://github.com/zenoconorart/GPTUsage">zenoconorart/GPTUsage</a></div>
