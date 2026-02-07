@@ -30,10 +30,6 @@
     <div class="muted">Live usage pulled from OpenAI billing API</div>
 
     <div class="row" style="margin-top:16px;">
-      <label class="muted">Start</label>
-      <input id="start" class="input" type="date" />
-      <label class="muted">End</label>
-      <input id="end" class="input" type="date" />
       <button id="refresh">Refresh</button>
       <span id="status" class="muted"></span>
     </div>
@@ -56,22 +52,11 @@
 <script>
   const API_BASE = 'https://gptusage.onrender.com';
 
-  const startEl = document.getElementById('start');
-  const endEl = document.getElementById('end');
   const statusEl = document.getElementById('status');
   const totalSpendEl = document.getElementById('totalSpend');
   const totalRequestsEl = document.getElementById('totalRequests');
   const totalTokensEl = document.getElementById('totalTokens');
   const lastUpdatedEl = document.getElementById('lastUpdated');
-
-  const today = new Date();
-  const end = new Date(today);
-  const start = new Date(today);
-  start.setDate(start.getDate() - 30);
-
-  const fmt = (d) => d.toISOString().slice(0,10);
-  startEl.value = fmt(start);
-  endEl.value = fmt(end);
 
   let chart;
 
@@ -114,8 +99,11 @@
   async function refresh() {
     try {
       statusEl.textContent = 'Loading…';
-      const s = startEl.value;
-      const e = endEl.value;
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 30);
+      const s = start.toISOString().slice(0,10);
+      const e = end.toISOString().slice(0,10);
       const data = await fetchUsage(s, e);
 
       const daily = data.daily_costs || [];
