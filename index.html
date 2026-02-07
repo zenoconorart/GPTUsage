@@ -46,8 +46,6 @@
 
     <div class="cards">
       <div class="card"><h3>Total Spend</h3><div class="value" id="totalSpend">—</div></div>
-      <div class="card"><h3>Total Requests</h3><div class="value" id="totalRequests">—</div></div>
-      <div class="card"><h3>Total Tokens</h3><div class="value" id="totalTokens">—</div></div>
       <div class="card"><h3>Last Updated</h3><div class="value" id="lastUpdated">—</div></div>
     </div>
 
@@ -64,8 +62,7 @@
 
   const statusEl = document.getElementById('status');
   const totalSpendEl = document.getElementById('totalSpend');
-  const totalRequestsEl = document.getElementById('totalRequests');
-  const totalTokensEl = document.getElementById('totalTokens');
+  // removed requests/tokens
   const lastUpdatedEl = document.getElementById('lastUpdated');
   const daySlider = document.getElementById('daySlider');
   const rangeLabel = document.getElementById('rangeLabel');
@@ -148,12 +145,7 @@
       const valuesGbp = valuesUsd.map(v => v * fx);
 
       const totalSpendGbp = valuesGbp.reduce((a,b)=>a + Number(b || 0), 0);
-      const totalRequests = daily.reduce((a,b)=>a+(b.num_requests||0),0);
-      const totalTokens = daily.reduce((a,b)=>a+(b.num_tokens||0),0);
-
       totalSpendEl.textContent = `£${totalSpendGbp.toFixed(2)}`;
-      totalRequestsEl.textContent = totalRequests.toLocaleString();
-      totalTokensEl.textContent = totalTokens.toLocaleString();
       lastUpdatedEl.textContent = new Date().toLocaleString();
 
       fullLabels = labels;
@@ -169,8 +161,6 @@
       console.error(err);
       statusEl.textContent = 'Error (see console)';
       totalSpendEl.textContent = '—';
-      totalRequestsEl.textContent = '—';
-      totalTokensEl.textContent = '—';
     }
   }
 
