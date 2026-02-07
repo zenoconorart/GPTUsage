@@ -38,13 +38,6 @@
       <span id="status" class="muted"></span>
     </div>
 
-    <div class="row" style="margin-top:12px;">
-      <label class="muted">API Server</label>
-      <input id="apibase" class="input" type="text" placeholder="https://your-api.onrender.com" style="min-width:320px;" />
-      <button id="savebase">Save</button>
-      <span class="muted">Stored in browser localStorage.</span>
-    </div>
-
     <div class="cards">
       <div class="card"><h3>Total Spend</h3><div class="value" id="totalSpend">—</div></div>
       <div class="card"><h3>Total Requests</h3><div class="value" id="totalRequests">—</div></div>
@@ -61,8 +54,7 @@
   </div>
 
 <script>
-  // API server base URL is stored in browser localStorage
-  let API_BASE = localStorage.getItem('openai_api_base') || '';
+  const API_BASE = 'https://gptusage.onrender.com';
 
   const startEl = document.getElementById('start');
   const endEl = document.getElementById('end');
@@ -71,8 +63,6 @@
   const totalRequestsEl = document.getElementById('totalRequests');
   const totalTokensEl = document.getElementById('totalTokens');
   const lastUpdatedEl = document.getElementById('lastUpdated');
-  const apiBaseEl = document.getElementById('apibase');
-  const saveBaseEl = document.getElementById('savebase');
 
   const today = new Date();
   const end = new Date(today);
@@ -83,22 +73,9 @@
   startEl.value = fmt(start);
   endEl.value = fmt(end);
 
-  if (API_BASE) apiBaseEl.value = API_BASE;
-  saveBaseEl.addEventListener('click', () => {
-    API_BASE = apiBaseEl.value.trim().replace(/\/$/, '');
-    if (API_BASE) {
-      localStorage.setItem('openai_api_base', API_BASE);
-      statusEl.textContent = 'API server saved';
-    } else {
-      localStorage.removeItem('openai_api_base');
-      statusEl.textContent = 'API server cleared';
-    }
-  });
-
   let chart;
 
   async function fetchUsage(startDate, endDate) {
-    if (!API_BASE) throw new Error('API server not set');
     const url = `${API_BASE}/usage?start_date=${startDate}&end_date=${endDate}`;
     const res = await fetch(url);
     if (!res.ok) {
@@ -136,11 +113,6 @@
 
   async function refresh() {
     try {
-      API_BASE = localStorage.getItem('openai_api_base') || API_BASE || '';
-      if (!API_BASE) {
-        statusEl.textContent = 'Add API server to load data';
-        return;
-      }
       statusEl.textContent = 'Loading…';
       const s = startEl.value;
       const e = endEl.value;
