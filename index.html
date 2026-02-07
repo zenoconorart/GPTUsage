@@ -108,9 +108,9 @@
 
       const daily = data.daily_costs || [];
       const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toISOString().slice(0,10) : '');
-      const values = daily.map(d => (d.total_cost || 0));
+      const values = daily.map(d => Number(d.total_cost || 0));
 
-      const totalSpend = values.reduce((a,b)=>a+b,0);
+      const totalSpend = values.reduce((a,b)=>a + Number(b || 0), 0);
       const totalRequests = daily.reduce((a,b)=>a+(b.num_requests||0),0);
       const totalTokens = daily.reduce((a,b)=>a+(b.num_tokens||0),0);
 
