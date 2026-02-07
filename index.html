@@ -143,7 +143,7 @@
       const fx = await fetchUsdToGbp();
 
       const daily = data.daily_costs || [];
-      const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toISOString().slice(0,10) : '');
+      const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toLocaleDateString(undefined, { weekday: 'short' }) : '');
       const valuesUsd = daily.map(d => Number(d.total_cost || 0));
       const valuesGbp = valuesUsd.map(v => v * fx);
 
