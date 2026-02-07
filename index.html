@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPT Usage Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0f14; color:#e6edf3; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    .muted { color:#9aa4b2; }
+    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:16px; margin:24px 0; }
+    .card { background:#111824; border:1px solid #1f2a3a; border-radius:12px; padding:16px; }
+    .card h3 { margin:0 0 8px; font-size:14px; color:#9aa4b2; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+    .card .value { font-size:24px; font-weight:700; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+    .input { background:#0f1520; border:1px solid #1f2a3a; color:#e6edf3; padding:10px 12px; border-radius:8px; }
+    button { background:#2d6cdf; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+    button:hover { background:#2457b8; }
+    canvas { background:#0f1520; border:1px solid #1f2a3a; border-radius:12px; padding:8px; }
+    .footer { margin-top: 16px; font-size:12px; color:#7f8a99; }
+    a { color:#7fb2ff; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>GPT Usage Dashboard</h1>
+    <div class="muted">Live usage pulled from OpenAI billing API</div>
+
+    <div class="row" style="margin-top:16px;">
+      <label class="muted">Start</label>
+      <input id="start" class="input" type="date" />
+      <label class="muted">End</label>
+      <input id="end" class="input" type="date" />
+      <button id="refresh">Refresh</button>
+      <span id="status" class="muted"></span>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <label class="muted">API Key</label>
+      <input id="apikey" class="input" type="password" placeholder="sk-..." style="min-width:320px;" />
+      <button id="savekey">Save Key</button>
+      <span class="muted">Stored in browser localStorage.</span>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h3>Total Spend</h3><div class="value" id="totalSpend">—</div></div>
+      <div class="card"><h3>Total Requests</h3><div class="value" id="totalRequests">—</div></div>
+      <div class="card"><h3>Total Tokens</h3><div class="value" id="totalTokens">—</div></div>
+      <div class="card"><h3>Last Updated</h3><div class="value" id="lastUpdated">—</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Daily Spend</h3>
+      <canvas id="chart" height="120"></canvas>
+    </div>
+
+    <div class="footer">Data source: OpenAI billing usage endpoint. Repo: <a href="https://github.com/zenoconorart/GPTUsage">zenoconorart/GPTUsage</a></div>
+  </div>
+
+<script>
+  // OpenAI API key is stored in browser localStorage (not committed to git)
+  let API_KEY = localStorage.getItem('openai_api_key') || '';
+
+  const startEl = document.getElementById('start');
+  const endEl = document.getElementById('end');
+  const statusEl = document.getElementById('status');
+  const totalSpendEl = document.getElementById('totalSpend');
+  const totalRequestsEl = document.getElementById('totalRequests');
+  const totalTokensEl = document.getElementById('totalTokens');
+  const lastUpdatedEl = document.getElementById('lastUpdated');
+  const apiKeyEl = document.getElementById('apikey');
+  const saveKeyEl = document.getElementById('savekey');
+
+  const today = new Date();
+  const end = new Date(today);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 30);
+
+  const fmt = (d) => d.toISOString().slice(0,10);
+  startEl.value = fmt(start);
+  endEl.value = fmt(end);
+
+  if (API_KEY) apiKeyEl.value = API_KEY;
+  saveKeyEl.addEventListener('click', () => {
+    API_KEY = apiKeyEl.value.trim();
+    if (API_KEY) {
+      localStorage.setItem('openai_api_key', API_KEY);
+      statusEl.textContent = 'API key saved';
+    } else {
+      localStorage.removeItem('openai_api_key');
+      statusEl.textContent = 'API key cleared';
+    }
+  });
+
+  let chart;
+
+  async function fetchUsage(startDate, endDate) {
+    const url = `https://api.openai.com/dashboard/billing/usage?start_date=${startDate}&end_date=${endDate}`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || res.statusText);
+    }
+    return res.json();
+  }
+
+  function renderChart(labels, values) {
+    const ctx = document.getElementById('chart');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'USD',
+          data: values,
+          borderColor: '#2d6cdf',
+          backgroundColor: 'rgba(45,108,223,0.2)',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } },
+          y: { ticks: { color: '#9aa4b2' }, grid: { color: '#1f2a3a' } }
+        }
+      }
+    });
+  }
+
+  async function refresh() {
+    try {
+      API_KEY = localStorage.getItem('openai_api_key') || API_KEY || '';
+      if (!API_KEY) {
+        statusEl.textContent = 'Add API key to load data';
+        return;
+      }
+      statusEl.textContent = 'Loading…';
+      const s = startEl.value;
+      const e = endEl.value;
+      const data = await fetchUsage(s, e);
+
+      const daily = data.daily_costs || [];
+      const labels = daily.map(d => d.timestamp ? new Date(d.timestamp*1000).toISOString().slice(0,10) : '');
+      const values = daily.map(d => (d.total_cost || 0));
+
+      const totalSpend = values.reduce((a,b)=>a+b,0);
+      const totalRequests = daily.reduce((a,b)=>a+(b.num_requests||0),0);
+      const totalTokens = daily.reduce((a,b)=>a+(b.num_tokens||0),0);
+
+      totalSpendEl.textContent = `$${totalSpend.toFixed(2)}`;
+      totalRequestsEl.textContent = totalRequests.toLocaleString();
+      totalTokensEl.textContent = totalTokens.toLocaleString();
+      lastUpdatedEl.textContent = new Date().toLocaleString();
+
+      renderChart(labels, values);
+      statusEl.textContent = 'Updated';
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Error (see console)';
+      totalSpendEl.textContent = '—';
+      totalRequestsEl.textContent = '—';
+      totalTokensEl.textContent = '—';
+    }
+  }
+
+  document.getElementById('refresh').addEventListener('click', refresh);
+  refresh();
+</script>
+</body>
+</html>
